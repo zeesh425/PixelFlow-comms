@@ -1,0 +1,15 @@
+{% extends 'users/base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Your Profile</h2>
+    <ul class="list-group">
+        <li class="list-group-item"><strong>Username:</strong> {{ user.username }}</li>
+        <li class="list-group-item"><strong>Email:</strong> {{ user.email }}</li>
+        <li class="list-group-item"><strong>Full Name:</strong> {{ user.first_name }} {{ user.last_name }}</li>
+        <li class="list-group-item"><strong>Department:</strong> {{ user.department }}</li>
+        <li class="list-group-item"><strong>WhatsApp:</strong> {{ user.whatsapp_number }}</li>
+        <li class="list-group-item"><strong>Role:</strong> {{ user.role }}</li>
+    </ul>
+</div>
+{% endblock %}

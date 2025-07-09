@@ -1,0 +1,30 @@
+{% extends 'users/base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>All Registration Requests</h2>
+
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Department</th>
+                <th>Status</th>
+                <th>Created At</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for req in all_requests %}
+                <tr>
+                    <td>{{ req.username }}</td>
+                    <td>{{ req.email }}</td>
+                    <td>{{ req.department }}</td>
+                    <td>{{ req.status }}</td>
+                    <td>{{ req.created_at }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

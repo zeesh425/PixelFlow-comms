@@ -1,0 +1,175 @@
+{% extends 'users/base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4 text-center">Admin Dashboard</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <ul class="nav nav-tabs nav-justified" id="adminTabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" id="pending-tab" data-toggle="tab" href="#pending" role="tab" aria-controls="pending" aria-selected="true">
+                <i class="fas fa-hourglass-half"></i> Pending Requests
+                {% if pending_requests.count > 0 %}
+                    <span class="badge badge-warning badge-pill">{{ pending_requests.count }}</span>
+                {% endif %}
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="users-tab" data-toggle="tab" href="#users" role="tab" aria-controls="users" aria-selected="false">
+                <i class="fas fa-users"></i> User Management
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="categories-tab" data-toggle="tab" href="#categories" role="tab" aria-controls="categories" aria-selected="false">
+                <i class="fas fa-folder"></i> Categories
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="topics-tab" data-toggle="tab" href="#topics" role="tab" aria-controls="topics" aria-selected="false">
+                <i class="fas fa-comments"></i> Topics
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="permissions-tab" data-toggle="tab" href="#permissions" role="tab" aria-controls="permissions" aria-selected="false">
+                <i class="fas fa-shield-alt"></i> Permissions
+            </a>
+        </li>
+    </ul>
+
+    <div class="tab-content border border-top-0 p-3 bg-light" id="adminTabsContent">
+        <div class="tab-pane fade show active" id="pending" role="tabpanel" aria-labelledby="pending-tab">
+            <h3 class="mb-3">Pending User Registration Requests</h3>
+            {% if pending_requests %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped">
+                        <thead class="thead-dark">
+                            <tr>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Department</th>
+                                <th>WhatsApp</th>
+                                <th>Submitted At</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in pending_requests %}
+                                <tr>
+                                    <td>{{ req.username }}</td>
+                                    <td>{{ req.email }}</td>
+                                    <td>{{ req.department }}</td>
+                                    <td>{{ req.whatsapp_number }}</td>
+                                    <td>{{ req.created_at|date:"Y-m-d H:i" }}</td>
+                                    <td>
+                                        <a href="{% url 'admin:users_userregistrationrequest_change' req.id %}" class="btn btn-sm btn-info">Review in Admin</a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-success" role="alert">
+                    No pending registration requests at this time.
+                </div>
+            {% endif %}
+            <div class="text-center mt-4">
+                <a href="{% url 'admin:users_userregistrationrequest_changelist' %}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-external-link-alt"></i> Go to All Registration Requests in Admin
+                </a>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="users" role="tabpanel" aria-labelledby="users-tab">
+            <h3 class="mb-3">User Management Overview</h3>
+            <div class="card p-4 shadow-sm text-center">
+                <p class="lead">Total Registered Users: <strong class="text-primary">{{ all_users_count }}</strong></p>
+                <p class="lead">Approved Users: <strong class="text-success">{{ approved_users_count }}</strong></p>
+                <p class="lead">Active Users: <strong class="text-info">{{ active_users_count }}</strong></p>
+                <p class="lead">Users with Admin Role: <strong class="text-danger">{{ admin_users_count }}</strong></p>
+                <div class="mt-4">
+                    <a href="{% url 'admin:users_customuser_changelist' %}" class="btn btn-primary btn-lg mx-2">
+                        <i class="fas fa-user-edit"></i> Manage Users
+                    </a>
+                    <a href="{% url 'admin:users_department_changelist' %}" class="btn btn-secondary btn-lg mx-2">
+                        <i class="fas fa-building"></i> Manage Departments
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="categories" role="tabpanel" aria-labelledby="categories-tab">
+            <h3 class="mb-3">Category Management Overview</h3>
+            <div class="card p-4 shadow-sm text-center">
+                <p class="lead">Total Categories: <strong class="text-primary">{{ categories_count }}</strong></p>
+                <p class="lead">Active Categories: <strong class="text-success">{{ active_categories_count }}</strong></p>
+                <div class="mt-4">
+                    <a href="{% url 'admin:topics_category_changelist' %}" class="btn btn-primary btn-lg mx-2">
+                        <i class="fas fa-folder-open"></i> Manage Categories
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="topics" role="tabpanel" aria-labelledby="topics-tab">
+            <h3 class="mb-3">Topic Management Overview</h3>
+            <div class="card p-4 shadow-sm text-center">
+                <p class="lead">Total Topics: <strong class="text-primary">{{ topics_count }}</strong></p>
+                <p class="lead">Active Topics: <strong class="text-success">{{ active_topics_count }}</strong></p>
+                <p class="lead">Closed Topics: <strong class="text-warning">{{ closed_topics_count }}</strong></p>
+                <p class="lead">Archived Topics: <strong class="text-secondary">{{ archived_topics_count }}</strong></p>
+                <div class="mt-4">
+                    <a href="{% url 'admin:topics_topic_changelist' %}" class="btn btn-primary btn-lg mx-2">
+                        <i class="fas fa-comments-dollar"></i> Manage Topics
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="permissions" role="tabpanel" aria-labelledby="permissions-tab">
+            <h3 class="mb-3">Permission Management Overview</h3>
+            <div class="card p-4 shadow-sm text-center">
+                <p class="lead">Total Category Restrictions: <strong class="text-primary">{{ category_restrictions_count }}</strong></p>
+                <p class="lead">Total Topic Restrictions: <strong class="text-primary">{{ topic_restrictions_count }}</strong></p>
+                <div class="mt-4">
+                    <a href="{% url 'admin:topics_categoryrestriction_changelist' %}" class="btn btn-primary btn-lg mx-2">
+                        <i class="fas fa-lock"></i> Manage Category Restrictions
+                    </a>
+                    <a href="{% url 'admin:topics_topicrestriction_changelist' %}" class="btn btn-primary btn-lg mx-2">
+                        <i class="fas fa-lock-open"></i> Manage Topic Restrictions
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function(){
+    // Activate tab from URL hash
+    if(window.location.hash) {
+        $('.nav-tabs a[href="' + window.location.hash + '"]').tab('show');
+    }
+
+    // Change hash for page-reload
+    $('.nav-tabs a').on('shown.bs.tab', function (e) {
+        window.location.hash = e.target.hash;
+    });
+
+    // Optional: Add some basic fade effect for tabs
+    $('.tab-pane').addClass('animate__animated animate__fadeIn');
+});
+</script>
+{% endblock %}

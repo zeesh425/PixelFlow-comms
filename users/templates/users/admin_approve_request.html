@@ -1,0 +1,24 @@
+{% extends 'users/base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Review Request: {{ reg_request.username }}</h2>
+    
+    <ul class="list-group mb-4">
+        <li class="list-group-item"><strong>Email:</strong> {{ reg_request.email }}</li>
+        <li class="list-group-item"><strong>Department:</strong> {{ reg_request.department }}</li>
+        <li class="list-group-item"><strong>WhatsApp:</strong> {{ reg_request.whatsapp_number }}</li>
+        <li class="list-group-item"><strong>Status:</strong> {{ reg_request.status }}</li>
+    </ul>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="admin_notes">Admin Notes (optional)</label>
+            <textarea name="admin_notes" id="admin_notes" rows="3" class="form-control"></textarea>
+        </div>
+        <button name="action" value="approve" class="btn btn-success">Approve</button>
+        <button name="action" value="reject" class="btn btn-danger">Reject</button>
+    </form>
+</div>
+{% endblock %}

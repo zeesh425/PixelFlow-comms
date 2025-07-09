@@ -1,0 +1,42 @@
+{% extends 'users/base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Pending Registration Requests</h2>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+    
+    {% if pending_requests %}
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Department</th>
+                    <th>Submitted At</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in pending_requests %}
+                    <tr>
+                        <td>{{ req.username }}</td>
+                        <td>{{ req.email }}</td>
+                        <td>{{ req.department }}</td>
+                        <td>{{ req.created_at }}</td>
+                        <td>
+                            <a href="{% url 'admin_approve_request' req.id %}" class="btn btn-sm btn-primary">Review</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No pending requests.</p>
+    {% endif %}
+</div>
+{% endblock %}

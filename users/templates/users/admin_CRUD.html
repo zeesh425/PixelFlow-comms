@@ -1,0 +1,157 @@
+{% extends 'users/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Admin Dashboard</h1>
+
+    {% if messages %}
+        <div class="alert alert-dismissible fade show" role="alert">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-tabs mb-4" id="adminTabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" data-bs-toggle="tab" href="#pending-requests" role="tab" aria-selected="true">Pending Requests</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#user-management" role="tab" aria-selected="false">User Management</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#categories" role="tab" aria-selected="false">Categories</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#topics" role="tab" aria-selected="false">Topics</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#permissions" role="tab" aria-selected="false">Permissions</a>
+        </li>
+    </ul>
+
+    <!-- Tab Contents - All content rendered directly -->
+    <div class="tab-content">
+        <!-- Pending Requests Tab Content -->
+        <div class="tab-pane fade show active" id="pending-requests" role="tabpanel">
+            <h2>Pending User Registration Requests
+                {% if pending_requests.count > 0 %}
+                    <span class="badge bg-primary">{{ pending_requests.count }}</span>
+                {% endif %}
+            </h2>
+            {% if pending_requests %}
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Department</th>
+                            <th>WhatsApp</th>
+                            <th>Submitted At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in pending_requests %}
+                            <tr>
+                                <td>{{ req.username }}</td>
+                                <td>{{ req.email }}</td>
+                                <td>{{ req.department.name }}</td>
+                                <td>{{ req.whatsapp_number }}</td>
+                                <td>{{ req.created_at|date:"Y-m-d H:i" }}</td>
+                                <td>
+                                    <a href="{% url 'admin_approve_request' req.id %}" class="btn btn-sm btn-primary">Review</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <a href="{% url 'admin_all_requests' %}" class="btn btn-secondary mt-3">View All Registration Requests</a>
+            {% else %}
+                <div class="alert alert-info">No pending registration requests at this time.</div>
+            {% endif %}
+        </div>
+
+        <!-- User Management Tab Content -->
+        <div class="tab-pane fade" id="user-management" role="tabpanel">
+            <h2>User Management Overview</h2>
+            <ul class="list-group">
+                <li class="list-group-item">Total Registered Users: {{ all_users_count }}</li>
+                <li class="list-group-item">Approved Users: {{ approved_users_count }}</li>
+                <li class="list-group-item">Active Users: {{ active_users_count }}</li>
+                <li class="list-group-item">Users with Admin Role: {{ admin_users_count }}</li>
+            </ul>
+            <div class="mt-3">
+                <a href="{% url 'admin:users_customuser_changelist' %}" class="btn btn-primary">Manage Users</a>
+                <a href="{% url 'admin:users_department_changelist' %}" class="btn btn-primary">Manage Departments</a>
+            </div>
+        </div>
+
+        <!-- Categories Tab Content -->
+        <div class="tab-pane fade" id="categories" role="tabpanel">
+            <h2>Category Overview</h2>
+            <ul class="list-group">
+                <li class="list-group-item">Total Categories: {{ categories_count }}</li>
+                <li class="list-group-item">Active Categories: {{ active_categories_count }}</li>
+            </ul>
+            <div class="mt-3">
+                <a href="{% url 'admin:topics_category_changelist' %}" class="btn btn-primary">Manage Categories</a>
+            </div>
+        </div>
+
+        <!-- Topics Tab Content -->
+        <div class="tab-pane fade" id="topics" role="tabpanel">
+            <h2>Topic Overview</h2>
+            <ul class="list-group">
+                <li class="list-group-item">Total Topics: {{ topics_count }}</li>
+                <li class="list-group-item">Active Topics: {{ active_topics_count }}</li>
+                <li class="list-group-item">Closed Topics: {{ closed_topics_count }}</li>
+                <li class="list-group-item">Archived Topics: {{ archived_topics_count }}</li>
+            </ul>
+            <div class="mt-3">
+                <a href="{% url 'admin:topics_topic_changelist' %}" class="btn btn-primary">Manage Topics</a>
+            </div>
+        </div>
+
+        <!-- Permissions Tab Content -->
+        <div class="tab-pane fade" id="permissions" role="tabpanel">
+            <h2>Permissions Overview</h2>
+            <ul class="list-group">
+                <li class="list-group-item">Category Restrictions: {{ category_restrictions_count }}</li>
+                <li class="list-group-item">Topic Restrictions: {{ topic_restrictions_count }}</li>
+            </ul>
+            <div class="mt-3">
+                <a href="{% url 'admin:topics_categoryrestriction_changelist' %}" class="btn btn-primary">Manage Category Restrictions</a>
+                <a href="{% url 'admin:topics_topicrestriction_changelist' %}" class="btn btn-primary">Manage Topic Restrictions</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Only Bootstrap JS is needed for tab switching, no custom AJAX logic -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- jQuery is no longer strictly needed for tab functionality, but keep if other parts of your site use it -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<script>
+$(document).ready(function () {
+    // Bootstrap's native tab functionality will handle showing/hiding tabs.
+    // No custom AJAX logic is needed here anymore.
+
+    // If you want to handle deep linking (URL hash) for tabs on page load:
+    const hash = window.location.hash;
+    if (hash) {
+        const targetTab = document.querySelector('a[href="' + hash + '"]');
+        if (targetTab) {
+            new bootstrap.Tab(targetTab).show();
+        }
+    }
+});
+</script>
+{% endblock %}

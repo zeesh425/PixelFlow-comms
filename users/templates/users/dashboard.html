@@ -1,0 +1,897 @@
+{% extends 'users/base.html' %}
+
+{% block extra_head %}
+<meta name="csrf-token" content="{{ csrf_token }}">
+<script>
+    // Set current user ID for JavaScript global access
+    window.currentUserId = {{ user.id|default:0 }};
+</script>
+<style>
+    /* Custom styles for the communication app */
+    .topic-item:hover {
+        background-color: #f8f9fa !important;
+    }
+
+    .topic-item.bg-primary:hover {
+        background-color: #0d6efd !important;
+    }
+
+    .max-width-75 {
+        max-width: 75%;
+    }
+
+    .message-content {
+        word-wrap: break-word;
+        white-space: pre-wrap;
+    }
+
+    #messages-container {
+        background-color: #f8f9fa;
+    }
+
+    .cursor-pointer {
+        cursor: pointer;
+    }
+
+    .border-right {
+        border-right: 1px solid #dee2e6 !important;
+    }
+
+    /* Custom scrollbar */
+    #messages-container::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    #messages-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+
+    #messages-container::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 4px;
+    }
+
+    #messages-container::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .col-md-3 {
+            height: auto !important;
+        }
+        
+        #messages-container {
+            height: 300px !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-3 bg-light border-right" style="height: 100vh; overflow-y: auto;">
+            <div class="p-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">Categories</h5>
+                    <div>
+                        {% if user.is_authenticated and user.is_admin %}
+                        <button class="btn btn-outline-secondary btn-sm" id="createCategoryBtn">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                        {% endif %}
+                        <button class="btn btn-outline-secondary btn-sm" id="refresh-categories">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="categories-list">
+                    <div class="text-center">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 id="current-topic-title" class="mb-0">Select a topic to start messaging</h6>
+                    <div>
+                        <button class="btn btn-outline-secondary btn-sm" id="createTopicBtn">
+                            <i class="fas fa-plus"></i> New Topic
+                        </button>
+                        <button id="refresh-messages" class="btn btn-sm btn-outline-primary" disabled>
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button id="clear-messages" class="btn btn-sm btn-outline-danger" disabled>
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card-body p-0">
+                    <div id="messages-container" class="p-3" style="height: 500px; overflow-y: auto;">
+                        <div class="text-center text-muted mt-5">
+                            <i class="fas fa-comments fa-3x mb-3"></i>
+                            <p>Select a topic from the sidebar to start messaging</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-footer">
+                    <form id="message-form" class="d-flex">
+                        <input type="hidden" id="current-topic-id" value="">
+                        <input type="text" id="message-input" class="form-control me-2" placeholder="Type your message..." disabled>
+                        <button type="submit" id="send-btn" class="btn btn-primary" disabled>
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0">Topic Details</h6>
+                </div>
+                <div class="card-body">
+                    <div id="topic-details">
+                        <div class="text-center text-muted">
+                            <i class="fas fa-info-circle fa-2x mb-2"></i>
+                            <p>Select a topic to view details</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Recent Activity</h6>
+                </div>
+                <div class="card-body">
+                    <div id="recent-activity">
+                        </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Category Creation Modal -->
+<div class="modal fade" id="categoryModal" tabindex="-1" aria-labelledby="categoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="categoryModalLabel">Create New Category</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="categoryCreationForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="categoryName" class="form-label">Category Name</label>
+                        <input type="text" class="form-control" id="categoryName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="categoryDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="categoryDescription" name="description" rows="3"></textarea>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="categoryIsActive" name="is_active" checked>
+                        <label class="form-check-label" for="categoryIsActive">
+                            Is Active
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="submitCategoryBtn">Create Category</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Topic Creation Modal -->
+<div class="modal fade" id="topicModal" tabindex="-1" aria-labelledby="topicModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="topicModalLabel">Create New Topic</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="topicCreationForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Title</label>
+                        <input type="text" class="form-control" name="title" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Category</label>
+                        <select class="form-select" name="category" required>
+                            <!-- Will be populated by JS -->
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="submitTopicBtn">Create Topic</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="loading-spinner" class="d-none position-fixed top-50 start-50 translate-middle" style="z-index: 1000;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+
+<div id="message-alerts" class="position-fixed top-0 end-0 p-3" style="z-index: 1050;">
+    </div>
+
+<script>
+class CommunicationApp {
+    constructor() {
+        this.currentTopicId = null;
+        this.messagesContainer = document.getElementById('messages-container');
+        this.messageForm = document.getElementById('message-form');
+        this.messageInput = document.getElementById('message-input');
+        this.sendBtn = document.getElementById('send-btn');
+        this.refreshInterval = null;
+        this.lastMessageId = null;
+        
+        this.init();
+    }
+
+    init() {
+        this.setupEventListeners();
+        this.loadCategories();
+        this.loadRecentActivity();
+        this.setupCSRFToken();
+    }
+
+    setupEventListeners() {
+        // Message form submission
+        this.messageForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.sendMessage();
+        });
+
+        // Create Category Button Click Handler
+        document.getElementById('createCategoryBtn')?.addEventListener('click', () => {
+            const modal = new bootstrap.Modal(document.getElementById('categoryModal'));
+            modal.show();
+        });
+
+        // Submit Category Button Click Handler
+        document.getElementById('submitCategoryBtn')?.addEventListener('click', () => {
+            this.submitCategoryForm();
+        });
+
+        // Create Topic Button Click Handler
+        document.getElementById('createTopicBtn')?.addEventListener('click', () => {
+            this.populateCategoryDropdown();
+            const modal = new bootstrap.Modal(document.getElementById('topicModal'));
+            modal.show();
+        });
+
+        // Submit Topic Button Click Handler
+        document.getElementById('submitTopicBtn')?.addEventListener('click', () => {
+            this.submitTopicForm();
+        });
+
+        // Refresh messages button
+        document.getElementById('refresh-messages').addEventListener('click', () => {
+            this.loadMessages();
+        });
+
+        // Clear messages button
+        document.getElementById('clear-messages').addEventListener('click', () => {
+            this.clearMessages();
+        });
+
+        // Refresh categories button
+        document.getElementById('refresh-categories').addEventListener('click', () => {
+            this.loadCategories();
+        });
+
+        // Enter key to send message
+        this.messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage();
+            }
+        });
+
+        // Auto-resize textarea
+        this.messageInput.addEventListener('input', () => {
+            this.autoResizeTextarea();
+        });
+    }
+
+    setupCSRFToken() {
+        // Get CSRF token from Django
+        this.csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                        document.querySelector('meta[name=csrf-token]')?.content;
+    }
+
+    showLoading(show = true) {
+        const spinner = document.getElementById('loading-spinner');
+        if (show) {
+            spinner.classList.remove('d-none');
+        } else {
+            spinner.classList.add('d-none');
+        }
+    }
+
+    showAlert(message, type = 'success') {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.getElementById('message-alerts').appendChild(alertDiv);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+
+ async makeRequest(url, options = {}) {
+    const defaultOptions = {
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': this.csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+    };
+
+    const mergedOptions = { ...defaultOptions, ...options };
+    
+    try {
+        console.log('Making request to:', url, 'with options:', mergedOptions); // Debug log
+        const response = await fetch(url, mergedOptions);
+        
+        if (!response.ok) {
+            const error = new Error(`HTTP error! status: ${response.status}`);
+            error.response = response;
+            throw error;
+        }
+        
+        // Handle cases where response might be empty
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            return await response.json();
+        }
+        return {};
+        
+    } catch (error) {
+        console.error('Request failed:', error);
+        throw error;
+    }
+}
+
+    async loadCategories() {
+        try {
+            this.showLoading(true);
+            const categories = await this.makeRequest('/api/topics/categories/');
+            this.renderCategories(categories.results || categories);
+        } catch (error) {
+            console.error('Failed to load categories:', error);
+            this.showAlert('Failed to load categories', 'danger');
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
+    renderCategories(categories) {
+        const container = document.getElementById('categories-list');
+        container.innerHTML = '';
+
+        if (categories.length === 0) {
+            container.innerHTML = '<div class="text-muted text-center">No categories available</div>';
+            return;
+        }
+
+        categories.forEach(category => {
+            const categoryDiv = document.createElement('div');
+            categoryDiv.className = 'mb-3';
+            categoryDiv.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="text-primary mb-2">${category.name}</h6>
+                    <small class="text-muted">${category.topics_count || 0} topics</small>
+                </div>
+                <div class="topics-list" data-category-id="${category.id}">
+                    <div class="text-muted small">Loading topics...</div>
+                </div>
+            `;
+            container.appendChild(categoryDiv);
+            
+            // Load topics for this category
+            this.loadTopics(category.id);
+        });
+    }
+
+    async loadTopics(categoryId) {
+        try {
+            const topics = await this.makeRequest(`/api/topics/topics/?category=${categoryId}`);
+            this.renderTopics(categoryId, topics.results || topics);
+        } catch (error) {
+            console.error('Failed to load topics:', error);
+            const container = document.querySelector(`[data-category-id="${categoryId}"]`);
+            if (container) {
+                container.innerHTML = '<div class="text-danger small">Failed to load topics</div>';
+            }
+        }
+    }
+
+    renderTopics(categoryId, topics) {
+        const container = document.querySelector(`[data-category-id="${categoryId}"]`);
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        if (topics.length === 0) {
+            container.innerHTML = '<div class="text-muted small">No topics available</div>';
+            return;
+        }
+
+        topics.forEach(topic => {
+            const topicDiv = document.createElement('div');
+            topicDiv.className = 'topic-item p-2 mb-1 rounded cursor-pointer border';
+            topicDiv.style.cursor = 'pointer';
+            topicDiv.innerHTML = `
+                <div class="d-flex justify-content-between">
+                    <span class="topic-name fw-bold">${topic.title}</span>
+                    <small class="text-muted">${topic.total_messages || 0}</small>
+                </div>
+                ${topic.description ? `<small class="text-muted">${topic.description}</small>` : ''}
+                ${topic.last_activity ? `<small class="text-muted d-block">${this.formatDateTime(topic.last_activity)}</small>` : ''}
+            `;
+            
+            topicDiv.addEventListener('click', (event) => { // Pass event to selectTopic
+                this.selectTopic(topic, event);
+            });
+            
+            container.appendChild(topicDiv);
+        });
+    }
+
+    selectTopic(topic, event) { // Accept event parameter
+        // Update UI to show selected topic
+        document.querySelectorAll('.topic-item').forEach(item => {
+            item.classList.remove('bg-primary', 'text-white');
+            item.classList.add('border');
+        });
+        
+        event.currentTarget.classList.add('bg-primary', 'text-white');
+        event.currentTarget.classList.remove('border');
+        
+        this.currentTopicId = topic.id;
+        document.getElementById('current-topic-id').value = topic.id;
+        document.getElementById('current-topic-title').textContent = topic.title;
+        
+        // Enable messaging and controls
+        this.messageInput.disabled = false;
+        this.sendBtn.disabled = false;
+        document.getElementById('refresh-messages').disabled = false;
+        document.getElementById('clear-messages').disabled = false;
+        this.messageInput.focus();
+        
+        // Load messages
+        this.loadMessages();
+        {% comment %}
+            this.loadTopicDetails(topic);
+        {% endcomment %}
+
+        
+        // Start auto-refresh
+        this.startAutoRefresh();
+
+        this.refreshCurrentTopicDetails();
+
+        
+        
+    }
+
+    async loadMessages() {
+        if (!this.currentTopicId) return;
+        
+        try {
+            const messages = await this.makeRequest(`/api/conversations/messages/?topic=${this.currentTopicId}`);
+            this.renderMessages(messages.results || messages);
+        } catch (error) {
+            console.error('Failed to load messages:', error);
+            this.showAlert('Failed to load messages', 'danger');
+        }
+    }
+
+    renderMessages(messages) {
+        this.messagesContainer.innerHTML = '';
+        
+        if (messages.length === 0) {
+            this.messagesContainer.innerHTML = `
+                <div class="text-center text-muted mt-5">
+                    <i class="fas fa-comment fa-3x mb-3"></i>
+                    <p>No messages yet. Start the conversation!</p>
+                </div>
+            `;
+            return;
+        }
+
+        messages.forEach(message => {
+            const messageDiv = document.createElement('div');
+            const isOwn = message.sender.id === window.currentUserId;
+            
+            messageDiv.className = `message mb-3 ${isOwn ? 'text-end' : 'text-start'}`;
+            messageDiv.innerHTML = `
+                <div class="d-inline-block max-width-75 ${isOwn ? 'bg-primary text-white' : 'bg-light border'} rounded p-3">
+                    <div class="message-content">${this.escapeHtml(message.content)}</div>
+                    <small class="${isOwn ? 'text-white-50' : 'text-muted'} d-block mt-1">
+                        ${message.sender.username} • ${this.formatDateTime(message.created_at)}
+                    </small>
+                </div>
+            `;
+            
+            this.messagesContainer.appendChild(messageDiv);
+        });
+        
+        // Scroll to bottom
+        this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+        
+        // Update last message ID for checking new messages
+        if (messages.length > 0) {
+            this.lastMessageId = messages[messages.length - 1].id;
+        }
+    }
+
+    async refreshCurrentTopicDetails() {
+        if (!this.currentTopicId) return;
+        try {
+            // Fetch the specific topic details using its ID
+            const topic = await this.makeRequest(`/api/topics/topics/${this.currentTopicId}/`);
+            if (topic) {
+                this.loadTopicDetails(topic); // Update the right-side panel with fresh data
+            }
+        } catch (error) {
+            console.error('Failed to refresh current topic details:', error);
+            // Optionally, show an alert or handle this error
+        }
+    }
+
+
+    async sendMessage() {
+    if (!this.currentTopicId || !this.messageInput.value.trim()) return;
+    
+    const content = this.messageInput.value.trim();
+    this.messageInput.disabled = true;
+    this.sendBtn.disabled = true;
+    
+    try {
+        console.log('Attempting to send message to topic:', this.currentTopicId); // Debug log
+        
+        const response = await this.makeRequest('/api/conversations/messages/', {
+            method: 'POST',
+            body: JSON.stringify({
+                topic: this.currentTopicId,
+                content: content
+            })
+        });
+
+        console.log('Message send response:', response); // Debug log
+        
+        if (response && response.id) {
+            this.messageInput.value = '';
+            this.loadMessages();
+            this.loadRecentActivity();
+            this.showAlert('Message sent successfully!', 'success');
+            this.loadCategories(); 
+            this.refreshCurrentTopicDetails(); // Refresh topic details after sending message
+        } else {
+            throw new Error('Invalid response from server');
+        }
+        
+    } catch (error) {
+        console.error('Failed to send message:', error);
+        
+        // Enhanced error details
+        let errorMessage = 'Failed to send message';
+        if (error.response) {
+            try {
+                const errorData = await error.response.json();
+                errorMessage = errorData.detail || errorData.message || JSON.stringify(errorData);
+                console.error('Error details:', errorData);
+            } catch (e) {
+                errorMessage = `Server error: ${error.response.status}`;
+            }
+        }
+        
+        this.showAlert(errorMessage, 'danger');
+    } finally {
+        this.messageInput.disabled = false;
+        this.sendBtn.disabled = false;
+        this.messageInput.focus();
+    }
+}
+
+    clearMessages() {
+        this.messagesContainer.innerHTML = `
+            <div class="text-center text-muted mt-5">
+                <i class="fas fa-comment fa-3x mb-3"></i>
+                <p>Select a topic to view messages</p>
+            </div>
+        `;
+    }
+
+    async submitCategoryForm() {
+    const form = document.getElementById('categoryCreationForm');
+    if (!form) return;
+
+    const formData = new FormData(form);
+    const payload = {
+        name: formData.get('name'),
+        description: formData.get('description'),
+        is_active: formData.get('is_active') === 'on'
+    };
+
+    try {
+        const response = await this.makeRequest('/api/topics/categories/', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+        this.showAlert('Category created successfully!', 'success');
+        
+        // Hide modal and reset form
+        const modal = bootstrap.Modal.getInstance(document.getElementById('categoryModal'));
+        modal.hide();
+        form.reset();
+        
+        this.loadCategories(); // Refresh list
+    } catch (error) {
+        console.error('Failed to create category:', error);
+        let errorMessage = 'Failed to create category. Please try again.'; // Default error message
+
+        if (error.response) {
+            try {
+                const errorData = await error.response.json();
+                console.error('Error response:', errorData);
+
+                // Prioritize specific field errors
+                if (errorData.name && Array.isArray(errorData.name)) {
+                    errorMessage = `Category name error: ${errorData.name.join(', ')}`;
+                } else if (errorData.description && Array.isArray(errorData.description)) {
+                    errorMessage = `Description error: ${errorData.description.join(', ')}`;
+                } else if (errorData.is_active && Array.isArray(errorData.is_active)) {
+                    errorMessage = `Active status error: ${errorData.is_active.join(', ')}`;
+                } else if (errorData.non_field_errors && Array.isArray(errorData.non_field_errors)) {
+                    errorMessage = `Error: ${errorData.non_field_errors.join(', ')}`;
+                }
+                // Then check for general detail or message fields
+                else if (errorData.detail) {
+                    errorMessage = `Error: ${errorData.detail}`;
+                } else if (errorData.message) { // Less common in DRF, but good to include
+                    errorMessage = `Error: ${errorData.message}`;
+                }
+                // Fallback for any other structured error
+                else {
+                    errorMessage = `Server error: ${JSON.stringify(errorData)}`;
+                }
+                
+                console.error('Error details:', errorData); // Keep this for debugging
+            } catch (e) {
+                // If the response body is not valid JSON, use the status text or status code
+                errorMessage = `Server error: ${error.response.statusText || error.response.status}`;
+            }
+        }
+        // Always use the determined errorMessage for the alert
+        this.showAlert(errorMessage, 'danger');
+    }
+}
+
+    async populateCategoryDropdown() {
+        try {
+            const categories = await this.makeRequest('/api/topics/categories/');
+            const select = document.querySelector('#topicCreationForm select[name="category"]');
+            select.innerHTML = categories.map(cat => 
+                `<option value="${cat.id}">${cat.name}</option>`
+            ).join('');
+        } catch (error) {
+            console.error('Failed to load categories:', error);
+            this.showAlert('Failed to load categories for topic creation', 'danger');
+        }
+    }
+
+    async submitTopicForm() {
+        const form = document.getElementById('topicCreationForm');
+        if (!form) return;
+
+        try {
+            this.showLoading(true);
+            
+            const formData = new FormData(form);
+            const payload = {
+                title: formData.get('title').trim(),
+                description: formData.get('description').trim(),
+                category_id: parseInt(formData.get('category'))
+            };
+
+            // Enhanced logging
+            console.log('Submitting topic with payload:', payload);
+            
+            const response = await this.makeRequest('/api/topics/topics/', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+
+            console.log('Topic created:', response);
+            this.showAlert('Topic created successfully!', 'success');
+            
+            // Hide modal and reset form
+            const modal = bootstrap.Modal.getInstance(document.getElementById('topicModal'));
+            modal.hide();
+            form.reset();
+            
+            this.loadCategories();
+            
+        } catch (error) {
+            console.error('Topic creation failed:', error);
+            
+            // Try to get the actual error response
+            try {
+                const errorResponse = await error.response?.json();
+                console.error('Error details:', errorResponse);
+                
+                if (errorResponse?.category) {
+                    this.showAlert(`Invalid category: ${errorResponse.category}`, 'danger');
+                } else if (errorResponse?.title) {
+                    this.showAlert(`Title error: ${errorResponse.title}`, 'danger');
+                } else {
+                    this.showAlert(errorResponse?.detail || 'Failed to create topic', 'danger');
+                }
+            } catch (e) {
+                this.showAlert('Failed to create topic', 'danger');
+            }
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
+    loadTopicDetails(topic) {
+        const detailsContainer = document.getElementById('topic-details');
+        detailsContainer.innerHTML = `
+            <h6 class="text-primary">${topic.title}</h6>
+            <p class="text-muted small">${topic.description || 'No description'}</p>
+            <hr>
+            <div class="row text-center">
+                <div class="col-6">
+                    <div class="fw-bold">${topic.total_messages || 0}</div>
+                    <small class="text-muted">Messages</small>
+                </div>
+                <div class="col-6">
+                    <div class="fw-bold">${(topic.category && topic.category.name) ? topic.category.name : (topic.category_name || 'N/A')}</div>
+                    <small class="text-muted">Category</small>
+                </div>
+            </div>
+            ${topic.last_activity ? `
+                <div class="mt-2">
+                    <small class="text-muted">Last activity: ${this.formatDateTime(topic.last_activity)}</small>
+                </div>
+            ` : ''}
+        `;
+    }
+
+    async loadRecentActivity() {
+        try {
+            const data = await this.makeRequest('/users/api/dashboard-data/');
+            this.renderRecentActivity(data.recent_messages || []);
+        } catch (error) {
+            console.error('Failed to load recent activity:', error);
+        }
+    }
+
+    renderRecentActivity(messages) {
+        const container = document.getElementById('recent-activity');
+        container.innerHTML = '';
+
+        if (messages.length === 0) {
+            container.innerHTML = '<div class="text-muted small">No recent activity</div>';
+            return;
+        }
+
+        messages.slice(0, 5).forEach(message => {
+            const activityDiv = document.createElement('div');
+            activityDiv.className = 'border-bottom pb-2 mb-2';
+            activityDiv.innerHTML = `
+                <div class="d-flex justify-content-between">
+                    <small class="fw-bold">${message.topic_title}</small>
+                    <small class="text-muted">${this.formatDateTime(message.created_at)}</small>
+                </div>
+                <div class="text-muted small">${message.sender_username}: ${this.truncateText(message.content, 50)}</div>
+            `;
+            container.appendChild(activityDiv);
+        });
+    }
+
+    startAutoRefresh() {
+        this.stopAutoRefresh(); // Clear any existing interval
+        this.refreshInterval = setInterval(() => {
+            if (this.currentTopicId) {
+                this.loadMessages();
+                this.loadRecentActivity();
+                this.loadCategories(); // Refresh categories to reflect any new topics
+                this.refreshCurrentTopicDetails(); // Refresh topic details
+            }
+        }, 25000); // Refresh every 25 seconds
+        
+    }
+
+    stopAutoRefresh() {
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+            this.refreshInterval = null;
+        }
+    }
+
+    autoResizeTextarea() {
+        const textarea = this.messageInput;
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    }
+
+    // Utility methods
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    formatDateTime(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        const now = new Date();
+        const diff = now - date;
+        
+        if (diff < 60000) return 'just now';
+        if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+        if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+        if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+        
+        return date.toLocaleDateString();
+    }
+
+    truncateText(text, maxLength) {
+        if (text.length <= maxLength) return text;
+        return text.substr(0, maxLength) + '...';
+    }
+}
+
+// Initialize the app when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    window.commApp = new CommunicationApp();
+});
+
+// Clean up on page unload
+window.addEventListener('beforeunload', () => {
+    if (window.commApp) {
+        window.commApp.stopAutoRefresh();
+    }
+});
+</script>
+{% endblock %}
