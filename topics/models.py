@@ -147,9 +147,16 @@ class Topic(models.Model):
     
     
     def _has_permission(self, user, permission_field):
-        # Superusers and topic creator always have permission
+        # Superusers always have permission
         if user.is_superuser == user:
             return True
+        
+        # Check category permissions
+        if permission_field == 'view' and not self.category.can_user_view(user):
+            return False
+        
+        if permission_field == 'reply' and not self.category.can_user_reply(user):
+            return False
 
         # Check if the user has any restriction entry
         restriction = TopicRestriction.objects.filter(topic=self, user=user).first()

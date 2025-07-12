@@ -6,6 +6,8 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.template.loader import render_to_string
+from django.db.models import Q
+
 
 # Import Django REST Framework components
 from rest_framework.decorators import api_view, permission_classes
@@ -108,10 +110,16 @@ def verify_code(request):
                 # Clear the one-time code
                 reg_request.one_time_code = ''
                 reg_request.save()
-                
-                messages.success(request, 'Account created successfully! You can now login.')
-                return redirect('login')
-                
+
+                # Authenticate and login the user
+                user = authenticate(request, username=username, password=password)
+                if user is not None:
+                    login(request, user)
+                    messages.success(request, 'Account created successfully! Welcome to Pixel Flow Communications.')
+                    return redirect('dashboard')
+                else:
+                    messages.error(request,'Account created but login failed. Please try logging in manually')
+                    return redirect('login')
             except UserRegistrationRequest.DoesNotExist:
                 messages.error(request, 'Invalid username or verification code.')
     else:
@@ -185,7 +193,7 @@ def admin_CRUD(request):
         all_users_count = CustomUser.objects.count()
         approved_users_count = CustomUser.objects.filter(is_approved=True).count()
         active_users_count = CustomUser.objects.filter(is_active=True).count()
-        admin_users_count = CustomUser.objects.filter(role='admin').count() # Or is_staff=True if that's your admin indicator
+        admin_users_count=CustomUser.objects.filter(Q(role='admin') | Q(is_superuser=True)).count()
 
         # Pending Requests
         pending_requests = UserRegistrationRequest.objects.filter(status='pending').order_by('-created_at')
@@ -241,6 +249,11 @@ def admin_approve_request(request, request_id):
         action = request.POST.get('action')
 
         if action == 'approve':
+            #check if the user is already approved
+            if CustomUser.objects.filter(username=reg_request.username).exists():
+                messages.error(request, f'User {reg_request.username} is already approved.')
+                return redirect('admin_CRUD')
+            
             reg_request.approve_request(request.user)
             
             # ✅ Auto-generate one-time code
@@ -254,7 +267,7 @@ def admin_approve_request(request, request_id):
             reg_request.reject_request(request.user, notes)
             messages.success(request, f'Registration request for {reg_request.username} rejected.')
 
-        return redirect('admin_pending_requests')
+        return redirect('admin_approve_request', request_id=request_id)
 
     return render(request, 'users/admin_approve_request.html', {
         'reg_request': reg_request
